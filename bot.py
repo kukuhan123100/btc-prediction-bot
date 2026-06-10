@@ -3,23 +3,23 @@ import pandas as pd
 import numpy as np
 import ta
 import joblib
-import schedule
-import time
 import requests
 from datetime import datetime, timedelta
 from luno_python.client import Client
 
-# ====================== 请修改这里 ======================
-TELEGRAM_TOKEN = "8649270491:AAHGHf22Sk2VUoUzRehoSJZslL1YFW1dB1w"
-CHAT_ID = "2074757970"
-
-API_KEY_ID = "hpxstz48qndp3"
-API_KEY_SECRET = "iqIfLA0fzUbLmQWd0RhlUTcCKAGqI4rxzHQCFmTbNwg"
-# =======================================================
+# ====================== Secrets ======================
+TELEGRAM_TOKEN = "${{ secrets.TELEGRAM_TOKEN }}"
+CHAT_ID = "${{ secrets.CHAT_ID }}"
+API_KEY_ID = "${{ secrets.LUNO_API_KEY_ID }}"
+API_KEY_SECRET = "${{ secrets.LUNO_API_KEY_SECRET }}"
+# =====================================================
 
 client = Client(api_key_id=API_KEY_ID, api_key_secret=API_KEY_SECRET)
 
-model = joblib.load('best_xgb_24h_prediction.pkl')
+# 加载两个模型
+model_24h = joblib.load('best_xgb_24h_prediction.pkl')
+model_4h  = joblib.load('best_xgb_optuna_top15_final.pkl')
+
 top15_features = pd.read_csv('top15_features.csv')['feature'].tolist()
 
 
@@ -66,16 +66,14 @@ def get_latest_features():
             df = add_indicators(df)
             all_dfs[dur] = df
 
-        # 以 4h 为基准
         df_4h = all_dfs[14400].copy()
         df = df_4h.set_index('time')
 
-        # 重采样（包含 3d 和 7d）
         for dur in [3600, 28800, 86400, 259200, 604800]:
             if dur in all_dfs:
-                if dur == 259200:      # 3d
+                if dur == 259200:
                     suffix = "_3d"
-                elif dur == 604800:    # 7d
+                elif dur == 604800:
                     suffix = "_7d"
                 else:
                     suffix = f"_{dur//3600}h"
@@ -105,29 +103,36 @@ def get_latest_features():
 
 
 def predict_and_notify():
-    print(f"\n[{datetime.now()}] 开始预测...")
+    print(f"\n[{datetime.now()}] 开始双模型预测...")
+
     try:
         latest = get_latest_features()
         if latest is None:
             return
 
-        proba = model.predict_proba(latest)[0]
-        pred = model.predict(latest)[0]
+        # ===== 24h 模型 =====
+        proba_24h = model_24h.predict_proba(latest)[0]
+        pred_24h = model_24h.predict(latest)[0]
+        dir_24h = "上涨" if pred_24h == 1 else "下跌/平"
 
-        direction = "上涨" if pred == 1 else "下跌/平"
-        confidence = round(max(proba) * 100, 1)
+        # ===== 4h 模型 =====
+        proba_4h = model_4h.predict_proba(latest)[0]
+        pred_4h = model_4h.predict(latest)[0]
+        dir_4h = "上涨" if pred_4h == 1 else "下跌/平"
 
         message = (
-            f"📊 <b>BTC/MYR 24小时预测</b>\n"
+            f"📊 <b>BTC/MYR 双模型预测</b>\n"
             f"时间：{datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"
-            f"预测方向：<b>{direction}</b>\n"
-            f"置信度：<b>{confidence}%</b>\n\n"
-            f"上涨概率：{round(proba[1]*100, 1)}%\n"
-            f"下跌概率：{round(proba[0]*100, 1)}%"
+            f"【24小时预测】\n"
+            f"方向：<b>{dir_24h}</b>（置信度 {round(max(proba_24h)*100,1)}%）\n"
+            f"上涨概率：{round(proba_24h[1]*100,1)}%\n\n"
+            f"【4小时预测】\n"
+            f"方向：<b>{dir_4h}</b>（置信度 {round(max(proba_4h)*100,1)}%）\n"
+            f"上涨概率：{round(proba_4h[1]*100,1)}%"
         )
 
         send_telegram(message)
-        print("预测完成，已发送 Telegram")
+        print("双模型预测完成，已发送 Telegram")
 
     except Exception as e:
         error_msg = f"❌ 预测出错：{str(e)}"
@@ -135,12 +140,4 @@ def predict_and_notify():
         send_telegram(error_msg)
 
 
-# ====================== 定时任务 ======================
-schedule.every(4).hours.do(predict_and_notify)
-
-print("✅ 24小时预测 Bot 已启动！每 4 小时运行一次")
 predict_and_notify()
-
-while True:
-    schedule.run_pending()
-    time.sleep(60)
