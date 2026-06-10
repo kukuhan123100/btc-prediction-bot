@@ -1,0 +1,31 @@
+name: BTC 24h Prediction Bot
+
+on:
+  schedule:
+    - cron: "0 */4 * * *"     # 每 4 小时运行一次（UTC 时间）
+  workflow_dispatch:          # 允许手动触发（方便测试）
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install pandas numpy ta luno-python requests schedule
+
+      - name: Run prediction bot
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          LUNO_API_KEY_ID: ${{ secrets.LUNO_API_KEY_ID }}
+          LUNO_API_KEY_SECRET: ${{ secrets.LUNO_API_KEY_SECRET }}
+        run: python bot.py
