@@ -8,12 +8,12 @@ import requests
 from datetime import datetime, timedelta
 from luno_python.client import Client
 
-# ====================== 从环境变量读取 Secrets ======================
+# ====================== Secrets ======================
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 API_KEY_ID = os.environ.get("LUNO_API_KEY_ID")
 API_KEY_SECRET = os.environ.get("LUNO_API_KEY_SECRET")
-# =================================================================
+# =====================================================
 
 client = Client(api_key_id=API_KEY_ID, api_key_secret=API_KEY_SECRET)
 
@@ -122,13 +122,15 @@ def predict_and_notify():
 
         message = (
             f"📊 <b>BTC/MYR 双模型预测</b>\n"
-            f"时间：{datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"
-            f"【24小时预测】\n"
-            f"方向：<b>{dir_24h}</b>（置信度 {round(max(proba_24h)*100,1)}%）\n"
+            f"🕒 {datetime.now().strftime('%m-%d %H:%M')}\n\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"【24小时】\n"
+            f"方向：<b>{dir_24h}</b>　置信度：<b>{round(max(proba_24h)*100,1)}%</b>\n"
             f"上涨概率：{round(proba_24h[1]*100,1)}%\n\n"
-            f"【4小时预测】\n"
-            f"方向：<b>{dir_4h}</b>（置信度 {round(max(proba_4h)*100,1)}%）\n"
-            f"上涨概率：{round(proba_4h[1]*100,1)}%"
+            f"【4小时】\n"
+            f"方向：<b>{dir_4h}</b>　置信度：<b>{round(max(proba_4h)*100,1)}%</b>\n"
+            f"上涨概率：{round(proba_4h[1]*100,1)}%\n"
+            f"━━━━━━━━━━━━━━━━━━"
         )
 
         send_telegram(message)
