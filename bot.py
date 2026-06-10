@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import pandas as pd
 import numpy as np
 import ta
@@ -7,16 +8,15 @@ import requests
 from datetime import datetime, timedelta
 from luno_python.client import Client
 
-# ====================== Secrets ======================
-TELEGRAM_TOKEN = "${{ secrets.TELEGRAM_TOKEN }}"
-CHAT_ID = "${{ secrets.CHAT_ID }}"
-API_KEY_ID = "${{ secrets.LUNO_API_KEY_ID }}"
-API_KEY_SECRET = "${{ secrets.LUNO_API_KEY_SECRET }}"
-# =====================================================
+# ====================== 从环境变量读取 Secrets ======================
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+CHAT_ID = os.environ.get("CHAT_ID")
+API_KEY_ID = os.environ.get("LUNO_API_KEY_ID")
+API_KEY_SECRET = os.environ.get("LUNO_API_KEY_SECRET")
+# =================================================================
 
 client = Client(api_key_id=API_KEY_ID, api_key_secret=API_KEY_SECRET)
 
-# 加载两个模型
 model_24h = joblib.load('best_xgb_24h_prediction.pkl')
 model_4h  = joblib.load('best_xgb_optuna_top15_final.pkl')
 
@@ -45,12 +45,12 @@ def add_indicators(df):
 def get_latest_features():
     try:
         timeframes = {
-            3600: 90,      # 1h
-            14400: 180,    # 4h
-            28800: 180,    # 8h
-            86400: 365,    # 24h
-            259200: 730,   # 3d
-            604800: 1095   # 7d
+            3600: 90,
+            14400: 180,
+            28800: 180,
+            86400: 365,
+            259200: 730,
+            604800: 1095
         }
 
         all_dfs = {}
@@ -110,12 +110,12 @@ def predict_and_notify():
         if latest is None:
             return
 
-        # ===== 24h 模型 =====
+        # 24h 模型
         proba_24h = model_24h.predict_proba(latest)[0]
         pred_24h = model_24h.predict(latest)[0]
         dir_24h = "上涨" if pred_24h == 1 else "下跌/平"
 
-        # ===== 4h 模型 =====
+        # 4h 模型
         proba_4h = model_4h.predict_proba(latest)[0]
         pred_4h = model_4h.predict(latest)[0]
         dir_4h = "上涨" if pred_4h == 1 else "下跌/平"
