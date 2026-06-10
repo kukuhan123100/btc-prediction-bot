@@ -20,7 +20,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pandas numpy ta luno-python requests joblib
+          pip install pandas numpy ta luno-python requests joblib schedule
 
       - name: Run prediction bot
         env:
